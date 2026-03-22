@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard – ZKP Zero Trust</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+    nav {
+      width: 100%; max-width: 900px;
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 2.5rem;
+      padding: 0.75rem 1.2rem;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+    }
+    nav span { color: #58a6ff; font-weight: 600; }
+    nav a {
+      color: #f85149; text-decoration: none; font-size: 0.9rem;
+      padding: 0.4rem 0.9rem; border: 1px solid #f85149;
+      border-radius: 6px; transition: background 0.2s;
+    }
+    nav a:hover { background: #2d1117; }
+    .hero {
+      text-align: center; margin-bottom: 2.5rem;
+    }
+    .hero h1 { font-size: 2rem; color: #3fb950; }
+    .hero p  { color: #8b949e; margin-top: 0.4rem; font-size: 0.95rem; }
+    .grid {
+      display: flex; flex-wrap: wrap; gap: 1.2rem;
+      justify-content: center; width: 100%; max-width: 900px;
+    }
+    .tile {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 1.5rem 1.8rem;
+      flex: 1 1 250px; min-width: 220px;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+    .tile:hover { border-color: #58a6ff; transform: translateY(-2px); }
+    .tile .icon { font-size: 2rem; margin-bottom: 0.6rem; }
+    .tile h3 { font-size: 1rem; color: #e6edf3; margin-bottom: 0.4rem; }
+    .tile p  { font-size: 0.82rem; color: #8b949e; line-height: 1.5; }
+    .badge-ok {
+      display: inline-block;
+      background: #0d2818; color: #3fb950;
+      border: 1px solid #238636;
+      border-radius: 20px; padding: 0.2rem 0.75rem;
+      font-size: 0.75rem; font-weight: 600;
+      margin-top: 1rem;
+    }
+    .auth-info {
+      margin-top: 2.5rem; width: 100%; max-width: 900px;
+      background: #161b22; border: 1px solid #30363d;
+      border-radius: 10px; padding: 1.2rem 1.5rem;
+      font-size: 0.82rem; color: #8b949e; line-height: 2;
+    }
+    .auth-info strong { color: #c9d1d9; }
+    .green { color: #3fb950; }
+  </style>
+</head>
+<body>
+
+<!-- Navigation bar -->
+<nav>
+  <span>🔐 ZKP Zero Trust &nbsp;|&nbsp; Cloud Resource</span>
+  <a href="/logout">Logout</a>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <h1>✅ Access Granted</h1>
+  <p>Welcome back, <strong style="color:#e6edf3">{{ username }}</strong>! Your identity was verified without a password.</p>
+</div>
+
+<!-- Tiles: simulated cloud resources -->
+<div class="grid">
+
+  <div class="tile">
+    <div class="icon">📁</div>
+    <h3>Cloud Storage</h3>
+    <p>Encrypted file vault — accessible only after ZKP authentication.</p>
+    <span class="badge-ok">✔ Unlocked</span>
+  </div>
+
+  <div class="tile">
+    <div class="icon">⚙️</div>
+    <h3>Settings</h3>
+    <p>Account configuration, key rotation, and policy preferences.</p>
+    <span class="badge-ok">✔ Unlocked</span>
+  </div>
+
+  <div class="tile">
+    <div class="icon">📊</div>
+    <h3>Analytics</h3>
+    <p>Usage metrics, login history, and Zero Trust policy audit log.</p>
+    <span class="badge-ok">✔ Unlocked</span>
+  </div>
+
+  <div class="tile">
+    <div class="icon">🌐</div>
+    <h3>API Access</h3>
+    <p>Programmatic access to protected cloud services via short-lived tokens.</p>
+    <span class="badge-ok">✔ Unlocked</span>
+  </div>
+
+</div>
+
+<!-- Auth summary -->
+<div class="auth-info">
+  <strong>Authentication Summary</strong><br>
+  <span class="green">✔</span> ZKP Protocol &nbsp;→&nbsp; <strong>Schnorr Identification (G^s · y^c ≡ t mod P)</strong><br>
+  <span class="green">✔</span> Zero Trust Policy &nbsp;→&nbsp; <strong>Time check &amp; IP check passed</strong><br>
+  <span class="green">✔</span> Access Control Decision &nbsp;→&nbsp; <strong>GRANTED</strong><br>
+  <span class="green">✔</span> No password was transmitted or stored at any point.
+</div>
+
+</body>
+</html>
