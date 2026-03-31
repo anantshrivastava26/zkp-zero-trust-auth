@@ -3,129 +3,515 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard – ZKP Zero Trust</title>
+  <title>Dashboard - ZKP Zero Trust</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --paper: #f4efe4;
+      --paper-strong: #fff8ea;
+      --ink: #1f2a3b;
+      --ink-soft: #4f5d6f;
+      --edge: #2f3a4f;
+      --brand: #16697a;
+      --brand-strong: #0f5260;
+      --accent: #cc6f3d;
+      --ok: #1f7c53;
+      --danger: #b34640;
+      --panel-shadow: 0 26px 58px rgba(18, 26, 40, 0.2);
+      --card-shadow: 0 18px 30px rgba(21, 32, 48, 0.12);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #0d1117;
-      color: #c9d1d9;
+      font-family: 'Space Grotesk', 'Trebuchet MS', sans-serif;
+      color: var(--ink);
       min-height: 100vh;
+      padding: 1.5rem 1rem 2rem;
+      background:
+        radial-gradient(circle at 10% 8%, rgba(204, 111, 61, 0.2), transparent 36%),
+        radial-gradient(circle at 90% 12%, rgba(22, 105, 122, 0.18), transparent 32%),
+        linear-gradient(145deg, #f7f1e5 0%, #ece4d4 38%, #dbe8e4 100%);
+      overflow-x: hidden;
+    }
+
+    .layer {
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+    }
+
+    .layer-grid {
+      z-index: -5;
+      opacity: 0.18;
+      background-image:
+        linear-gradient(to right, rgba(40, 52, 68, 0.16) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(40, 52, 68, 0.16) 1px, transparent 1px);
+      background-size: 34px 34px;
+      mask-image: radial-gradient(circle at center, #000 40%, transparent 100%);
+      -webkit-mask-image: radial-gradient(circle at center, #000 40%, transparent 100%);
+    }
+
+    .layer-lines {
+      z-index: -4;
+      opacity: 0.14;
+      background-image: repeating-linear-gradient(
+        -11deg,
+        rgba(22, 105, 122, 0.45),
+        rgba(22, 105, 122, 0.45) 1px,
+        transparent 1px,
+        transparent 16px
+      );
+    }
+
+    .layer-vignette {
+      z-index: -3;
+      box-shadow: inset 0 0 180px rgba(22, 35, 53, 0.28);
+    }
+
+    .orb {
+      position: fixed;
+      border-radius: 999px;
+      filter: blur(4px);
+      pointer-events: none;
+      z-index: -2;
+    }
+
+    .orb-a {
+      width: 260px;
+      height: 260px;
+      left: -60px;
+      top: 28%;
+      background: radial-gradient(circle at 35% 35%, rgba(204, 111, 61, 0.4), rgba(204, 111, 61, 0.02));
+      animation: driftA 13s ease-in-out infinite alternate;
+    }
+
+    .orb-b {
+      width: 320px;
+      height: 320px;
+      right: -90px;
+      bottom: -50px;
+      background: radial-gradient(circle at 45% 35%, rgba(22, 105, 122, 0.44), rgba(22, 105, 122, 0.02));
+      animation: driftB 14s ease-in-out infinite alternate;
+    }
+
+    .shell {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      background: linear-gradient(156deg, rgba(255, 248, 234, 0.74), rgba(244, 239, 228, 0.88));
+      border: 1px solid rgba(35, 53, 73, 0.28);
+      border-radius: 30px;
+      box-shadow: var(--panel-shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .shell::before {
+      content: '';
+      position: absolute;
+      inset: 12px;
+      border: 1px solid rgba(35, 53, 73, 0.18);
+      border-radius: 20px;
+      pointer-events: none;
+    }
+
+    .topbar {
+      position: relative;
+      z-index: 2;
+      padding: 1.1rem 2.2rem;
+      border-bottom: 1px solid rgba(35, 53, 73, 0.18);
       display: flex;
-      flex-direction: column;
       align-items: center;
-      padding: 2rem 1rem;
+      justify-content: space-between;
+      gap: 0.9rem;
+      flex-wrap: wrap;
     }
-    nav {
-      width: 100%; max-width: 900px;
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 2.5rem;
-      padding: 0.75rem 1.2rem;
-      background: #161b22;
-      border: 1px solid #30363d;
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #1f2a3b;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid rgba(15, 82, 96, 0.5);
+      display: grid;
+      place-items: center;
+      color: var(--brand-strong);
+      background: rgba(22, 105, 122, 0.08);
+      font-size: 0.92rem;
+    }
+
+    .status-pill {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-radius: 999px;
+      border: 1px solid rgba(31, 124, 83, 0.4);
+      color: #145638;
+      background: rgba(196, 242, 219, 0.75);
+      padding: 0.28rem 0.55rem;
+      font-weight: 700;
+    }
+
+    .logout {
+      text-decoration: none;
       border-radius: 10px;
+      border: 1px solid rgba(179, 70, 64, 0.45);
+      color: #7b2c28;
+      background: rgba(255, 230, 227, 0.65);
+      padding: 0.5rem 0.84rem;
+      font-size: 0.84rem;
+      font-weight: 600;
+      transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
     }
-    nav span { color: #58a6ff; font-weight: 600; }
-    nav a {
-      color: #f85149; text-decoration: none; font-size: 0.9rem;
-      padding: 0.4rem 0.9rem; border: 1px solid #f85149;
-      border-radius: 6px; transition: background 0.2s;
+
+    .logout:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 225, 221, 0.85);
+      box-shadow: 0 8px 18px rgba(179, 70, 64, 0.2);
     }
-    nav a:hover { background: #2d1117; }
+
     .hero {
-      text-align: center; margin-bottom: 2.5rem;
+      position: relative;
+      z-index: 2;
+      padding: 1.7rem 2.2rem 0.6rem;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 1.2rem;
+      align-items: start;
     }
-    .hero h1 { font-size: 2rem; color: #3fb950; }
-    .hero p  { color: #8b949e; margin-top: 0.4rem; font-size: 0.95rem; }
+
+    .hero h1 {
+      font-size: clamp(1.65rem, 3vw, 2.35rem);
+      line-height: 1.12;
+      color: #172236;
+      margin-bottom: 0.48rem;
+    }
+
+    .hero p {
+      color: var(--ink-soft);
+      line-height: 1.55;
+      font-size: 0.96rem;
+      max-width: 60ch;
+    }
+
+    .username {
+      color: #1d2b42;
+      font-weight: 700;
+    }
+
+    .hero-note {
+      border: 1px solid rgba(22, 105, 122, 0.28);
+      border-radius: 14px;
+      background: rgba(228, 247, 249, 0.58);
+      padding: 0.84rem 0.88rem;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      color: #244f60;
+      box-shadow: var(--card-shadow);
+    }
+
+    .workspace {
+      position: relative;
+      z-index: 2;
+      padding: 1rem 2.2rem 2.2rem;
+      display: grid;
+      grid-template-columns: 1.7fr 1fr;
+      gap: 1.2rem;
+    }
+
     .grid {
-      display: flex; flex-wrap: wrap; gap: 1.2rem;
-      justify-content: center; width: 100%; max-width: 900px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
     }
+
     .tile {
-      background: #161b22;
-      border: 1px solid #30363d;
+      background: rgba(255, 248, 234, 0.84);
+      border: 1px solid rgba(47, 58, 79, 0.28);
+      border-radius: 18px;
+      padding: 1.05rem 1.05rem 1rem;
+      box-shadow: var(--card-shadow);
+      position: relative;
+      isolation: isolate;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .tile::before {
+      content: '';
+      position: absolute;
+      inset: 8px;
+      border-radius: 13px;
+      border: 1px dashed rgba(22, 105, 122, 0.22);
+      z-index: -1;
+    }
+
+    .tile:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 21px 34px rgba(21, 32, 48, 0.16);
+    }
+
+    .tile-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .icon {
+      width: 34px;
+      height: 34px;
       border-radius: 10px;
-      padding: 1.5rem 1.8rem;
-      flex: 1 1 250px; min-width: 220px;
-      transition: border-color 0.2s, transform 0.15s;
+      display: grid;
+      place-items: center;
+      font-size: 1.1rem;
+      border: 1px solid rgba(22, 105, 122, 0.35);
+      background: rgba(22, 105, 122, 0.1);
+      color: #0f4f5c;
     }
-    .tile:hover { border-color: #58a6ff; transform: translateY(-2px); }
-    .tile .icon { font-size: 2rem; margin-bottom: 0.6rem; }
-    .tile h3 { font-size: 1rem; color: #e6edf3; margin-bottom: 0.4rem; }
-    .tile p  { font-size: 0.82rem; color: #8b949e; line-height: 1.5; }
+
     .badge-ok {
-      display: inline-block;
-      background: #0d2818; color: #3fb950;
-      border: 1px solid #238636;
-      border-radius: 20px; padding: 0.2rem 0.75rem;
-      font-size: 0.75rem; font-weight: 600;
-      margin-top: 1rem;
+      border-radius: 999px;
+      border: 1px solid rgba(31, 124, 83, 0.4);
+      color: #145638;
+      background: rgba(196, 242, 219, 0.7);
+      padding: 0.2rem 0.54rem;
+      font-size: 0.67rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
     }
-    .auth-info {
-      margin-top: 2.5rem; width: 100%; max-width: 900px;
-      background: #161b22; border: 1px solid #30363d;
-      border-radius: 10px; padding: 1.2rem 1.5rem;
-      font-size: 0.82rem; color: #8b949e; line-height: 2;
+
+    .tile h3 {
+      color: #1d2b42;
+      font-size: 0.98rem;
+      margin-bottom: 0.36rem;
     }
-    .auth-info strong { color: #c9d1d9; }
-    .green { color: #3fb950; }
+
+    .tile p {
+      color: #56657a;
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    .summary {
+      border: 1px solid rgba(47, 58, 79, 0.24);
+      border-radius: 18px;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.58);
+      box-shadow: var(--card-shadow);
+      align-self: start;
+      position: sticky;
+      top: 1rem;
+    }
+
+    .summary h2 {
+      color: #1d2b42;
+      font-size: 0.98rem;
+      margin-bottom: 0.62rem;
+    }
+
+    .summary p {
+      font-size: 0.8rem;
+      color: #526074;
+      line-height: 1.5;
+      margin-bottom: 0.62rem;
+    }
+
+    .summary-list {
+      list-style: none;
+      display: grid;
+      gap: 0.52rem;
+      margin-bottom: 0.68rem;
+    }
+
+    .summary-list li {
+      border: 1px solid rgba(47, 58, 79, 0.16);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.66);
+      padding: 0.56rem 0.6rem;
+      font-size: 0.77rem;
+      color: #2a374c;
+      line-height: 1.45;
+    }
+
+    .summary-list strong {
+      color: #173652;
+    }
+
+    .ok {
+      color: #145638;
+      font-weight: 700;
+      margin-right: 0.34rem;
+    }
+
+    .mono {
+      font-family: 'IBM Plex Mono', Consolas, monospace;
+    }
+
+    .footnote {
+      border-top: 1px solid rgba(47, 58, 79, 0.16);
+      padding-top: 0.62rem;
+      font-size: 0.74rem;
+      color: #55647a;
+      line-height: 1.5;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(16px);
+      animation: rise 0.72s ease forwards;
+    }
+
+    .topbar.reveal { animation-delay: 0.03s; }
+    .hero.reveal { animation-delay: 0.12s; }
+    .tile.reveal:nth-child(1) { animation-delay: 0.2s; }
+    .tile.reveal:nth-child(2) { animation-delay: 0.27s; }
+    .tile.reveal:nth-child(3) { animation-delay: 0.34s; }
+    .tile.reveal:nth-child(4) { animation-delay: 0.41s; }
+    .summary.reveal { animation-delay: 0.45s; }
+
+    @keyframes rise {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes driftA {
+      from { transform: translate(0, 0); }
+      to { transform: translate(26px, -18px); }
+    }
+
+    @keyframes driftB {
+      from { transform: translate(0, 0); }
+      to { transform: translate(-24px, 20px); }
+    }
+
+    @media (max-width: 1060px) {
+      .hero,
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .summary {
+        position: static;
+      }
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 1rem 0.75rem 1.5rem;
+      }
+
+      .topbar,
+      .hero,
+      .workspace {
+        padding-left: 1.2rem;
+        padding-right: 1.2rem;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
+  <div class="layer layer-grid"></div>
+  <div class="layer layer-lines"></div>
+  <div class="layer layer-vignette"></div>
+  <div class="orb orb-a"></div>
+  <div class="orb orb-b"></div>
 
-<!-- Navigation bar -->
-<nav>
-  <span>🔐 ZKP Zero Trust &nbsp;|&nbsp; Cloud Resource</span>
-  <a href="/logout">Logout</a>
-</nav>
+  <main class="shell">
+    <nav class="topbar reveal">
+      <div class="brand">
+        <span class="brand-mark">Z</span>
+        <span>ZKP Zero Trust | Cloud Resource</span>
+        <span class="status-pill">session verified</span>
+      </div>
+      <a class="logout" href="/logout">Logout</a>
+    </nav>
 
-<!-- Hero -->
-<div class="hero">
-  <h1>✅ Access Granted</h1>
-  <p>Welcome back, <strong style="color:#e6edf3">{{ username }}</strong>! Your identity was verified without a password.</p>
-</div>
+    <header class="hero reveal">
+      <div>
+        <h1>Access granted</h1>
+        <p>Welcome back, <span class="username">{{ username }}</span>. Your identity proof passed with zero password exposure and policy checks approved this session.</p>
+      </div>
+      <div class="hero-note">
+        Layered trust model: cryptographic identity proof plus context-aware policy validation for every access decision.
+      </div>
+    </header>
 
-<!-- Tiles: simulated cloud resources -->
-<div class="grid">
+    <section class="workspace">
+      <div class="grid">
+        <article class="tile reveal">
+          <div class="tile-top">
+            <span class="icon">S</span>
+            <span class="badge-ok">Unlocked</span>
+          </div>
+          <h3>Cloud Storage</h3>
+          <p>Encrypted file vault available only after successful ZKP authentication.</p>
+        </article>
 
-  <div class="tile">
-    <div class="icon">📁</div>
-    <h3>Cloud Storage</h3>
-    <p>Encrypted file vault — accessible only after ZKP authentication.</p>
-    <span class="badge-ok">✔ Unlocked</span>
-  </div>
+        <article class="tile reveal">
+          <div class="tile-top">
+            <span class="icon">C</span>
+            <span class="badge-ok">Unlocked</span>
+          </div>
+          <h3>Settings</h3>
+          <p>Account controls, key rotation, and policy preferences for ongoing hardening.</p>
+        </article>
 
-  <div class="tile">
-    <div class="icon">⚙️</div>
-    <h3>Settings</h3>
-    <p>Account configuration, key rotation, and policy preferences.</p>
-    <span class="badge-ok">✔ Unlocked</span>
-  </div>
+        <article class="tile reveal">
+          <div class="tile-top">
+            <span class="icon">A</span>
+            <span class="badge-ok">Unlocked</span>
+          </div>
+          <h3>Analytics</h3>
+          <p>Usage insights, login events, and policy evaluation trails for investigation.</p>
+        </article>
 
-  <div class="tile">
-    <div class="icon">📊</div>
-    <h3>Analytics</h3>
-    <p>Usage metrics, login history, and Zero Trust policy audit log.</p>
-    <span class="badge-ok">✔ Unlocked</span>
-  </div>
+        <article class="tile reveal">
+          <div class="tile-top">
+            <span class="icon">API</span>
+            <span class="badge-ok">Unlocked</span>
+          </div>
+          <h3>API Access</h3>
+          <p>Programmatic access to protected services through short-lived verified tokens.</p>
+        </article>
+      </div>
 
-  <div class="tile">
-    <div class="icon">🌐</div>
-    <h3>API Access</h3>
-    <p>Programmatic access to protected cloud services via short-lived tokens.</p>
-    <span class="badge-ok">✔ Unlocked</span>
-  </div>
-
-</div>
-
-<!-- Auth summary -->
-<div class="auth-info">
-  <strong>Authentication Summary</strong><br>
-  <span class="green">✔</span> ZKP Protocol &nbsp;→&nbsp; <strong>Schnorr Identification (G^s · y^c ≡ t mod P)</strong><br>
-  <span class="green">✔</span> Zero Trust Policy &nbsp;→&nbsp; <strong>Time check &amp; IP check passed</strong><br>
-  <span class="green">✔</span> Access Control Decision &nbsp;→&nbsp; <strong>GRANTED</strong><br>
-  <span class="green">✔</span> No password was transmitted or stored at any point.
-</div>
-
+      <aside class="summary reveal">
+        <h2>Authentication Summary</h2>
+        <p>Every protected feature is available only after this combined verification chain succeeds.</p>
+        <ul class="summary-list">
+          <li><span class="ok">OK</span><strong>ZKP protocol:</strong> <span class="mono">Schnorr Identification (G^s * y^c = t mod P)</span></li>
+          <li><span class="ok">OK</span><strong>Zero trust policy:</strong> Time and IP checks passed</li>
+          <li><span class="ok">OK</span><strong>Access control:</strong> Decision is granted</li>
+          <li><span class="ok">OK</span> No password was transmitted or stored at any stage</li>
+        </ul>
+        <p class="footnote">Session remains active while policy posture and proof state remain valid.</p>
+      </aside>
+    </section>
+  </main>
 </body>
 </html>

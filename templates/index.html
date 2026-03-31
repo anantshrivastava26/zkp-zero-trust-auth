@@ -4,176 +4,603 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ZKP Zero Trust Auth</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --paper: #f4efe4;
+      --paper-strong: #fff8ea;
+      --ink: #1f2a3b;
+      --ink-soft: #4f5d6f;
+      --edge: #2f3a4f;
+      --brand: #16697a;
+      --brand-strong: #0f5260;
+      --accent: #cc6f3d;
+      --ok: #1f7c53;
+      --danger: #b34640;
+      --panel-shadow: 0 26px 58px rgba(18, 26, 40, 0.2);
+      --card-shadow: 0 18px 30px rgba(21, 32, 48, 0.12);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #0d1117;
-      color: #c9d1d9;
+      font-family: 'Space Grotesk', 'Trebuchet MS', sans-serif;
+      color: var(--ink);
       min-height: 100vh;
+      padding: 1.5rem 1rem 2rem;
+      background:
+        radial-gradient(circle at 10% 8%, rgba(204, 111, 61, 0.2), transparent 36%),
+        radial-gradient(circle at 90% 12%, rgba(22, 105, 122, 0.18), transparent 32%),
+        linear-gradient(145deg, #f7f1e5 0%, #ece4d4 38%, #dbe8e4 100%);
+      overflow-x: hidden;
+    }
+
+    .layer {
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+    }
+
+    .layer-grid {
+      z-index: -5;
+      opacity: 0.18;
+      background-image:
+        linear-gradient(to right, rgba(40, 52, 68, 0.16) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(40, 52, 68, 0.16) 1px, transparent 1px);
+      background-size: 34px 34px;
+      mask-image: radial-gradient(circle at center, #000 40%, transparent 100%);
+      -webkit-mask-image: radial-gradient(circle at center, #000 40%, transparent 100%);
+    }
+
+    .layer-lines {
+      z-index: -4;
+      opacity: 0.14;
+      background-image: repeating-linear-gradient(
+        -11deg,
+        rgba(22, 105, 122, 0.45),
+        rgba(22, 105, 122, 0.45) 1px,
+        transparent 1px,
+        transparent 16px
+      );
+    }
+
+    .layer-vignette {
+      z-index: -3;
+      box-shadow: inset 0 0 180px rgba(22, 35, 53, 0.28);
+    }
+
+    .orb {
+      position: fixed;
+      border-radius: 999px;
+      filter: blur(4px);
+      pointer-events: none;
+      z-index: -2;
+    }
+
+    .orb-a {
+      width: 260px;
+      height: 260px;
+      left: -60px;
+      top: 28%;
+      background: radial-gradient(circle at 35% 35%, rgba(204, 111, 61, 0.4), rgba(204, 111, 61, 0.02));
+      animation: driftA 13s ease-in-out infinite alternate;
+    }
+
+    .orb-b {
+      width: 320px;
+      height: 320px;
+      right: -90px;
+      bottom: -50px;
+      background: radial-gradient(circle at 45% 35%, rgba(22, 105, 122, 0.44), rgba(22, 105, 122, 0.02));
+      animation: driftB 14s ease-in-out infinite alternate;
+    }
+
+    .shell {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      background: linear-gradient(156deg, rgba(255, 248, 234, 0.74), rgba(244, 239, 228, 0.88));
+      border: 1px solid rgba(35, 53, 73, 0.28);
+      border-radius: 30px;
+      box-shadow: var(--panel-shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .shell::before {
+      content: '';
+      position: absolute;
+      inset: 12px;
+      border: 1px solid rgba(35, 53, 73, 0.18);
+      border-radius: 20px;
+      pointer-events: none;
+    }
+
+    .hero {
+      padding: 2.25rem 2.2rem 1.6rem;
+      border-bottom: 1px solid rgba(35, 53, 73, 0.18);
       display: flex;
       flex-direction: column;
-      align-items: center;
-      padding: 2rem 1rem;
+      gap: 0.7rem;
+      position: relative;
+      z-index: 2;
     }
-    h1 { font-size: 1.8rem; color: #58a6ff; margin-bottom: 0.3rem; text-align:center; }
-    .subtitle { color: #8b949e; font-size: 0.9rem; text-align:center; margin-bottom: 2rem; }
-    .cards { display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 860px; }
+
+    .eyebrow {
+      display: inline-flex;
+      width: fit-content;
+      font-size: 0.72rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--brand-strong);
+      border: 1px solid rgba(15, 82, 96, 0.4);
+      border-radius: 999px;
+      padding: 0.35rem 0.7rem;
+      background: rgba(22, 105, 122, 0.08);
+    }
+
+    h1 {
+      font-size: clamp(1.7rem, 3vw, 2.5rem);
+      line-height: 1.1;
+      color: #172236;
+      max-width: 20ch;
+    }
+
+    .subtitle {
+      color: var(--ink-soft);
+      font-size: 0.98rem;
+      max-width: 68ch;
+      line-height: 1.55;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin-top: 0.25rem;
+    }
+
+    .chip {
+      font-size: 0.74rem;
+      letter-spacing: 0.03em;
+      border: 1px solid rgba(47, 58, 79, 0.2);
+      border-radius: 999px;
+      padding: 0.3rem 0.65rem;
+      background: rgba(255, 255, 255, 0.48);
+      color: #2a3649;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 1.7fr 1fr;
+      gap: 1.3rem;
+      padding: 1.8rem 2.2rem 2.2rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.1rem;
+      align-items: start;
+    }
+
     .card {
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 12px;
-      padding: 1.8rem;
-      flex: 1 1 360px;
+      background: rgba(255, 248, 234, 0.84);
+      border: 1px solid rgba(47, 58, 79, 0.28);
+      border-radius: 18px;
+      padding: 1.2rem 1.1rem 1.15rem;
+      box-shadow: var(--card-shadow);
+      position: relative;
+      isolation: isolate;
+      min-height: 290px;
     }
-    .card h2 { font-size: 1.1rem; color: #58a6ff; margin-bottom: 1.2rem; display:flex; align-items:center; gap:0.5rem; }
-    label { display: block; font-size: 0.82rem; color: #8b949e; margin-bottom: 0.3rem; margin-top: 0.9rem; }
-    input[type=text], input[type=password] {
-      width: 100%; padding: 0.55rem 0.75rem;
-      background: #0d1117; border: 1px solid #30363d;
-      border-radius: 6px; color: #c9d1d9; font-size: 0.9rem;
-      outline: none; transition: border-color 0.2s;
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 8px;
+      border-radius: 13px;
+      border: 1px dashed rgba(22, 105, 122, 0.22);
+      z-index: -1;
     }
-    input:focus { border-color: #58a6ff; }
-    button {
-      margin-top: 1.2rem; width: 100%; padding: 0.65rem;
-      background: #238636; color: #fff; border: none;
-      border-radius: 6px; font-size: 0.95rem; cursor: pointer;
-      transition: background 0.2s;
+
+    .card h2 {
+      font-size: 1.02rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.92rem;
+      color: #1d2b42;
     }
-    button:hover { background: #2ea043; }
-    .result {
-      margin-top: 1.1rem; padding: 0.8rem 1rem;
-      border-radius: 6px; font-size: 0.85rem; display: none;
-      word-break: break-all; line-height: 1.6;
-    }
-    .result.ok  { background: #0d2818; border: 1px solid #238636; color: #3fb950; }
-    .result.err { background: #2d1117; border: 1px solid #f85149; color: #f85149; }
-    .key-box {
-      background: #0d1117; border: 1px solid #f0883e;
-      border-radius: 6px; padding: 0.75rem;
-      margin-top: 0.6rem; font-family: monospace; font-size: 0.78rem;
-      color: #f0883e; word-break: break-all;
-    }
-    .steps {
-      background: #0d1117; border: 1px solid #30363d;
-      border-radius: 8px; padding: 1rem;
-      margin-top: 1.5rem; width: 100%; max-width: 860px;
-      font-size: 0.82rem; color: #8b949e;
-    }
-    .steps h3 { color: #58a6ff; margin-bottom: 0.6rem; }
-    .steps ol { padding-left: 1.2rem; line-height: 2; }
+
     .badge {
-      display: inline-block; padding: 0.15rem 0.5rem;
-      border-radius: 4px; font-size: 0.7rem; font-weight: 600;
-      background: #1f6feb33; color: #58a6ff; margin-left: 0.4rem;
+      font-size: 0.66rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border-radius: 999px;
+      border: 1px solid rgba(22, 105, 122, 0.45);
+      padding: 0.26rem 0.55rem;
+      color: var(--brand-strong);
+      background: rgba(22, 105, 122, 0.1);
+      white-space: nowrap;
+    }
+
+    label {
+      display: block;
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 0.3rem;
+      margin-top: 0.82rem;
+      color: #48586d;
+      font-weight: 600;
+    }
+
+    input[type=text],
+    input[type=password] {
+      width: 100%;
+      padding: 0.6rem 0.72rem;
+      border: 1px solid rgba(47, 58, 79, 0.28);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.68);
+      color: #182538;
+      font-size: 0.92rem;
+      font-family: 'Space Grotesk', 'Trebuchet MS', sans-serif;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+
+    input[type=text]:focus,
+    input[type=password]:focus {
+      border-color: rgba(22, 105, 122, 0.72);
+      box-shadow: 0 0 0 4px rgba(22, 105, 122, 0.17);
+      transform: translateY(-1px);
+    }
+
+    button {
+      width: 100%;
+      margin-top: 1.05rem;
+      border: 0;
+      border-radius: 11px;
+      padding: 0.74rem 0.82rem;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #f8fbfe;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-strong) 70%);
+      transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
+      box-shadow: 0 10px 20px rgba(22, 105, 122, 0.32);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      filter: saturate(1.08);
+      box-shadow: 0 15px 24px rgba(22, 105, 122, 0.35);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .result {
+      margin-top: 0.95rem;
+      padding: 0.82rem 0.9rem;
+      border-radius: 11px;
+      font-size: 0.84rem;
+      display: none;
+      word-break: break-word;
+      line-height: 1.55;
+      border: 1px solid transparent;
+      font-family: 'IBM Plex Mono', Consolas, monospace;
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    .result.ok {
+      border-color: rgba(31, 124, 83, 0.45);
+      color: #145638;
+      background: rgba(213, 244, 229, 0.72);
+    }
+
+    .result.err {
+      border-color: rgba(179, 70, 64, 0.45);
+      color: #7a2824;
+      background: rgba(255, 225, 222, 0.74);
+    }
+
+    .key-box {
+      border: 1px solid rgba(204, 111, 61, 0.6);
+      background: rgba(255, 243, 231, 0.94);
+      border-radius: 8px;
+      padding: 0.62rem;
+      margin-top: 0.58rem;
+      color: #8a4a29;
+      word-break: break-all;
+      font-size: 0.75rem;
+    }
+
+    .key-box.public {
+      border-color: rgba(22, 105, 122, 0.56);
+      color: #0f4f5c;
+      background: rgba(228, 247, 249, 0.9);
+    }
+
+    .steps {
+      border: 1px solid rgba(47, 58, 79, 0.24);
+      border-radius: 18px;
+      padding: 1rem 1rem 1.05rem;
+      background: rgba(255, 255, 255, 0.58);
+      box-shadow: var(--card-shadow);
+      align-self: start;
+      position: sticky;
+      top: 1rem;
+    }
+
+    .steps h3 {
+      font-size: 0.96rem;
+      margin-bottom: 0.58rem;
+      color: #1d2b42;
+    }
+
+    .steps p {
+      font-size: 0.83rem;
+      color: #526074;
+      line-height: 1.5;
+      margin-bottom: 0.62rem;
+    }
+
+    .steps ol {
+      padding-left: 1.15rem;
+      color: #26344a;
+      line-height: 1.65;
+      font-size: 0.81rem;
+    }
+
+    .steps li {
+      margin-bottom: 0.34rem;
+    }
+
+    .footnote {
+      margin-top: 0.8rem;
+      border-top: 1px solid rgba(47, 58, 79, 0.16);
+      padding-top: 0.66rem;
+      font-size: 0.75rem;
+      color: #536175;
+      line-height: 1.5;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(16px);
+      animation: rise 0.72s ease forwards;
+    }
+
+    .hero.reveal { animation-delay: 0.06s; }
+    .card.reveal:nth-child(1) { animation-delay: 0.16s; }
+    .card.reveal:nth-child(2) { animation-delay: 0.26s; }
+    .steps.reveal { animation-delay: 0.34s; }
+
+    @keyframes rise {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes driftA {
+      from { transform: translate(0, 0); }
+      to { transform: translate(26px, -18px); }
+    }
+
+    @keyframes driftB {
+      from { transform: translate(0, 0); }
+      to { transform: translate(-24px, 20px); }
+    }
+
+    @media (max-width: 1060px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .steps {
+        position: static;
+      }
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 1rem 0.75rem 1.5rem;
+      }
+
+      .hero {
+        padding: 1.45rem 1.2rem 1.15rem;
+      }
+
+      .workspace {
+        padding: 1.1rem 1.2rem 1.4rem;
+      }
+
+      .cards {
+        grid-template-columns: 1fr;
+      }
+
+      .card {
+        min-height: auto;
+      }
+
+      h1 {
+        max-width: 100%;
+      }
     }
   </style>
 </head>
 <body>
+  <div class="layer layer-grid"></div>
+  <div class="layer layer-lines"></div>
+  <div class="layer layer-vignette"></div>
+  <div class="orb orb-a"></div>
+  <div class="orb orb-b"></div>
 
-<h1>🔐 ZKP Zero Trust Authentication</h1>
-<p class="subtitle">Schnorr Protocol &nbsp;·&nbsp; No passwords stored &nbsp;·&nbsp; Zero Trust policy enforced</p>
+  <main class="shell">
+    <header class="hero reveal">
+      <p class="eyebrow">Zero Trust Identity Layer</p>
+      <h1>Proof-based access without password storage</h1>
+      <p class="subtitle">Schnorr authentication and policy checks run together, so identity proof and runtime risk posture are both required before access is granted.</p>
+      <div class="chip-row">
+        <span class="chip">Schnorr protocol</span>
+        <span class="chip">No password hashes</span>
+        <span class="chip">Adaptive policy gate</span>
+      </div>
+    </header>
 
-<div class="cards">
+    <section class="workspace">
+      <div class="cards">
+        <article class="card reveal">
+          <h2>
+            <span>Register user</span>
+            <span class="badge">new identity</span>
+          </h2>
+          <label for="reg-username">Username</label>
+          <input type="text" id="reg-username" placeholder="e.g. alice" autocomplete="off" />
+          <button type="button" onclick="register()">Generate keys and register</button>
+          <div class="result" id="reg-result"></div>
+        </article>
 
-  <!-- ── REGISTER ── -->
-  <div class="card">
-    <h2>👤 Register <span class="badge">New User</span></h2>
-    <label for="reg-username">Username</label>
-    <input type="text" id="reg-username" placeholder="e.g. alice" autocomplete="off" />
-    <button onclick="register()">Generate Keys &amp; Register</button>
-    <div class="result" id="reg-result"></div>
-  </div>
+        <article class="card reveal">
+          <h2>
+            <span>Login with ZKP</span>
+            <span class="badge">proof flow</span>
+          </h2>
+          <label for="login-username">Username</label>
+          <input type="text" id="login-username" placeholder="e.g. alice" autocomplete="username" />
+          <label for="login-key">Private key</label>
+          <input type="password" id="login-key" placeholder="Paste your private key" autocomplete="off" />
+          <button type="button" onclick="login()">Authenticate securely</button>
+          <div class="result" id="login-result"></div>
+        </article>
+      </div>
 
-  <!-- ── LOGIN ── -->
-  <div class="card">
-    <h2>🔑 Login <span class="badge">ZKP Proof</span></h2>
-    <label for="login-username">Username</label>
-    <input type="text" id="login-username" placeholder="e.g. alice" autocomplete="off" />
-    <label for="login-key">Private Key</label>
-    <input type="password" id="login-key" placeholder="Paste your private key" autocomplete="off" />
-    <button onclick="login()">Authenticate with ZKP</button>
-    <div class="result" id="login-result"></div>
-  </div>
+      <aside class="steps reveal">
+        <h3>How the layered gate works</h3>
+        <p>Access only unlocks when cryptographic proof and policy evaluation both pass.</p>
+        <ol>
+          <li><strong>Registration:</strong> create key pair, store only public key.</li>
+          <li><strong>Challenge:</strong> compute Schnorr proof using private key client side.</li>
+          <li><strong>Verification:</strong> validate proof equation on server.</li>
+          <li><strong>Policy decision:</strong> evaluate time, source, reputation, risk score.</li>
+          <li><strong>Grant:</strong> redirect to dashboard only on full pass.</li>
+        </ol>
+        <p class="footnote">This interface intentionally uses layered surfaces, depth cues, and restrained motion to improve visual hierarchy without losing readability.</p>
+      </aside>
+    </section>
+  </main>
 
-</div>
-
-<!-- Flow explanation -->
-<div class="steps">
-  <h3>⚙ How it works</h3>
-  <ol>
-    <li><strong>Register</strong> – server generates a key-pair (G^x mod P). Only the <em>public key</em> is stored.</li>
-    <li><strong>Login</strong> – client sends username + private key → server runs the Schnorr proof locally.</li>
-    <li><strong>Verify</strong> – server checks G^s · y^c ≡ t (mod P) without ever knowing your secret.</li>
-    <li><strong>Policy gate</strong> – Zero Trust engine checks time-of-day, IP reputation and risk score.</li>
-    <li><strong>Access</strong> – only if BOTH ZKP and policy pass is the dashboard unlocked.</li>
-  </ol>
-</div>
-
-<script>
-  function show(id, html, type) {
-    const el = document.getElementById(id);
-    el.innerHTML = html;
-    el.className = `result ${type}`;
-    el.style.display = 'block';
-  }
-
-  async function register() {
-    const username = document.getElementById('reg-username').value.trim();
-    if (!username) { show('reg-result', 'Please enter a username.', 'err'); return; }
-
-    const res  = await fetch('/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username })
-    });
-    const data = await res.json();
-
-    if (data.success) {
-      show('reg-result',
-        `✅ ${data.message}<br><br>` +
-        `<strong>⚠ Save your private key – shown only once!</strong>` +
-        `<div class="key-box">Private key: ${data.private_key}</div>` +
-        `<div class="key-box" style="color:#58a6ff; border-color:#58a6ff;">Public key&nbsp;: ${data.public_key}</div>`,
-        'ok');
-    } else {
-      show('reg-result', `❌ ${data.message}`, 'err');
-    }
-  }
-
-  async function login() {
-    const username    = document.getElementById('login-username').value.trim();
-    const private_key = document.getElementById('login-key').value.trim();
-    if (!username || !private_key) {
-      show('login-result', 'Please enter username and private key.', 'err'); return;
+  <script>
+    function show(id, html, type) {
+      const el = document.getElementById(id);
+      el.innerHTML = html;
+      el.className = `result ${type}`;
+      el.style.display = 'block';
     }
 
-    // Step 1: generate ZKP proof
-    show('login-result', '⏳ Generating ZKP proof…', 'ok');
-    const loginRes  = await fetch('/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, private_key })
-    });
-    const loginData = await loginRes.json();
+    async function requestJson(url, options) {
+      const response = await fetch(url, options);
+      let data;
 
-    if (!loginData.success) {
-      show('login-result', `❌ ${loginData.message}`, 'err'); return;
+      try {
+        data = await response.json();
+      } catch (error) {
+        data = { success: false, message: 'Server returned an invalid response.' };
+      }
+
+      if (!response.ok && !data.message) {
+        data.message = 'Request failed.';
+      }
+
+      return data;
     }
 
-    // Step 2: verify proof + policy
-    show('login-result', '⏳ Verifying proof &amp; policy…', 'ok');
-    const verRes  = await fetch('/verify', { method: 'POST' });
-    const verData = await verRes.json();
+    async function register() {
+      const username = document.getElementById('reg-username').value.trim();
+      if (!username) {
+        show('reg-result', 'Please enter a username.', 'err');
+        return;
+      }
 
-    if (verData.success) {
-      show('login-result', `✅ ${verData.message}<br>Redirecting to dashboard…`, 'ok');
-      setTimeout(() => { window.location.href = verData.redirect; }, 1200);
-    } else {
-      show('login-result', `❌ ${verData.message}`, 'err');
+      try {
+        const data = await requestJson('/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username })
+        });
+
+        if (data.success) {
+          show(
+            'reg-result',
+            `Success: ${data.message}<br><br>` +
+            `<strong>Save your private key. It is only shown once.</strong>` +
+            `<div class="key-box">Private key: ${data.private_key}</div>` +
+            `<div class="key-box public">Public key: ${data.public_key}</div>`,
+            'ok'
+          );
+        } else {
+          show('reg-result', `Failed: ${data.message}`, 'err');
+        }
+      } catch (error) {
+        show('reg-result', 'Network error while registering.', 'err');
+      }
     }
-  }
-</script>
+
+    async function login() {
+      const username = document.getElementById('login-username').value.trim();
+      const privateKey = document.getElementById('login-key').value.trim();
+
+      if (!username || !privateKey) {
+        show('login-result', 'Please enter username and private key.', 'err');
+        return;
+      }
+
+      try {
+        show('login-result', 'Generating ZKP proof...', 'ok');
+
+        const loginData = await requestJson('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, private_key: privateKey })
+        });
+
+        if (!loginData.success) {
+          show('login-result', `Failed: ${loginData.message}`, 'err');
+          return;
+        }
+
+        show('login-result', 'Verifying proof and policy checks...', 'ok');
+        const verifyData = await requestJson('/verify', { method: 'POST' });
+
+        if (verifyData.success) {
+          show('login-result', `Success: ${verifyData.message}<br>Redirecting to dashboard...`, 'ok');
+          setTimeout(() => {
+            window.location.href = verifyData.redirect;
+          }, 1100);
+        } else {
+          show('login-result', `Failed: ${verifyData.message}`, 'err');
+        }
+      } catch (error) {
+        show('login-result', 'Network error while authenticating.', 'err');
+      }
+    }
+  </script>
 </body>
 </html>
