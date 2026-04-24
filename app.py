@@ -24,8 +24,15 @@ from zkp.schnorr import (
     generate_response,
     verify_proof,
 )
-from database.db import save_user, get_user, user_exists
+from database.db import (
+    save_user, get_user, user_exists,
+    record_failed_attempt, reset_failed_attempts,
+    get_lockout,
+)
 from policy.policy_engine import evaluate_policy
+from policy.rate_limiter import (
+    record_ip_failure, is_ip_blocked, reset_ip,
+)
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -148,19 +155,48 @@ def verify():
         session.clear()
         return _bad("User not found.", 404)
 
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    # ── Gate 1: Dynamic IP block ───────────────────────────────────────────
+    blocked, unblock_at = is_ip_blocked(ip)
+    if blocked:
+        import time as _time
+        wait = int(unblock_at - _time.time())
+        return _bad(
+            f"Too many failed attempts from this IP. "
+            f"Try again in {wait}s.", 429
+        )
+
+    # ── Gate 2: Account lockout ────────────────────────────────────────────
+    locked, locked_until = get_lockout(username)
+    if locked:
+        import time as _time
+        wait = int(locked_until - _time.time())
+        if locked_until >= 9_999_999_990:
+            return _bad(
+                "Account permanently locked due to repeated failures. "
+                "Contact an administrator.", 403
+            )
+        return _bad(
+            f"Account temporarily locked. Try again in {wait}s.", 429
+        )
+
     # ── ZKP Verification ───────────────────────────────────────────────────
     if not verify_proof(user["public_key"], t, c, s):
+        record_failed_attempt(username, ip)   # increments counter + maybe locks account
+        record_ip_failure(ip)                 # increments IP failure window
         session.clear()
         return _bad("ZKP verification failed. Access denied.", 403)
 
     # ── Zero Trust Policy Check ────────────────────────────────────────────
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
     policy_ok, policy_msg = evaluate_policy(username, ip)
     if not policy_ok:
         session.clear()
         return _bad(policy_msg, 403)
 
     # ── Access Granted ─────────────────────────────────────────────────────
+    reset_failed_attempts(username)           # clear account failure + lockout state
+    reset_ip(ip)                              # clear IP failure window
     session["authenticated"] = True
     return jsonify({
         "success":  True,
