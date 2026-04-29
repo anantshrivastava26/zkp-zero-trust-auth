@@ -508,6 +508,47 @@
   </main>
 
   <script>
+    // ── Schnorr ZKP parameters (public) ────────────────────────────────────
+    const ZKP_P = 2147483647n;   // 2^31 - 1  (Mersenne prime)
+    const ZKP_G = 7n;
+
+    // Fast modular exponentiation using BigInt
+    function modpow(base, exp, mod) {
+      let result = 1n;
+      base = base % mod;
+      while (exp > 0n) {
+        if (exp % 2n === 1n) result = (result * base) % mod;
+        exp = exp / 2n;
+        base = (base * base) % mod;
+      }
+      return result;
+    }
+
+    // Cryptographically random BigInt in [min, max]
+    function randomBigInt(min, max) {
+      const range = max - min + 1n;
+      const bits = range.toString(2).length;
+      const bytes = Math.ceil(bits / 8);
+      let rand;
+      do {
+        const arr = new Uint8Array(bytes);
+        crypto.getRandomValues(arr);
+        rand = arr.reduce((acc, b) => (acc << 8n) | BigInt(b), 0n);
+        rand = rand & ((1n << BigInt(bits)) - 1n);
+      } while (rand >= range);
+      return min + rand;
+    }
+
+    // Generate Schnorr proof (t, c, s) from private key x — never leaves browser
+    function generateProof(x) {
+      const r = randomBigInt(2n, ZKP_P - 2n);
+      const t = modpow(ZKP_G, r, ZKP_P);
+      const c = randomBigInt(1n, ZKP_P - 2n);
+      const s = ((r - c * x) % (ZKP_P - 1n) + (ZKP_P - 1n)) % (ZKP_P - 1n);
+      return { t, c, s };
+    }
+
+    // ── UI helpers ──────────────────────────────────────────────────────────
     function show(id, html, type) {
       const el = document.getElementById(id);
       el.innerHTML = html;
@@ -518,17 +559,12 @@
     async function requestJson(url, options) {
       const response = await fetch(url, options);
       let data;
-
       try {
         data = await response.json();
       } catch (error) {
         data = { success: false, message: 'Server returned an invalid response.' };
       }
-
-      if (!response.ok && !data.message) {
-        data.message = 'Request failed.';
-      }
-
+      if (!response.ok && !data.message) data.message = 'Request failed.';
       return data;
     }
 
@@ -565,20 +601,27 @@
 
     async function login() {
       const username = document.getElementById('login-username').value.trim();
-      const privateKey = document.getElementById('login-key').value.trim();
+      const privateKeyStr = document.getElementById('login-key').value.trim();
 
-      if (!username || !privateKey) {
+      if (!username || !privateKeyStr) {
         show('login-result', 'Please enter username and private key.', 'err');
         return;
       }
 
+      let x;
       try {
-        show('login-result', 'Generating ZKP proof...', 'ok');
+        x = BigInt(privateKeyStr);
+      } catch {
+        show('login-result', 'Private key must be a number.', 'err');
+        return;
+      }
 
+      try {
+        // Step 1: Check user exists — private key stays in the browser
         const loginData = await requestJson('/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, private_key: privateKey })
+          body: JSON.stringify({ username })
         });
 
         if (!loginData.success) {
@@ -586,14 +629,21 @@
           return;
         }
 
+        // Step 2: Generate Schnorr proof entirely client-side
+        show('login-result', 'Generating ZKP proof locally...', 'ok');
+        const { t, c, s } = generateProof(x);
+
+        // Step 3: Send only the proof (t, c, s) — never the private key
         show('login-result', 'Verifying proof and policy checks...', 'ok');
-        const verifyData = await requestJson('/verify', { method: 'POST' });
+        const verifyData = await requestJson('/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ t: t.toString(), c: c.toString(), s: s.toString() })
+        });
 
         if (verifyData.success) {
           show('login-result', `Success: ${verifyData.message}<br>Redirecting to dashboard...`, 'ok');
-          setTimeout(() => {
-            window.location.href = verifyData.redirect;
-          }, 1100);
+          setTimeout(() => { window.location.href = verifyData.redirect; }, 1100);
         } else {
           show('login-result', `Failed: ${verifyData.message}`, 'err');
         }

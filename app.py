@@ -19,9 +19,6 @@ from flask import (
 from config import SECRET_KEY
 from zkp.schnorr import (
     generate_keys,
-    generate_commitment,
-    generate_challenge,
-    generate_response,
     verify_proof,
 )
 from database.db import (
@@ -83,51 +80,24 @@ def register():
     })
 
 
-# ── 3. Login (ZKP proof generation) ───────────────────────────────────────
+# ── 3. Login (identity lookup only) ───────────────────────────────────────
 @app.route("/login", methods=["POST"])
 def login():
     """
-    Login Flow  (ZKP Steps 1-3 – runs on the prover side)
-    ------------------------------------------------------
-    1. Receive username + private_key from client.
-    2. Generate commitment t = G^r mod P.
-    3. Generate challenge c.
-    4. Compute response s = (r - c·x) mod (P-1).
-    5. Store {t, c, s, username} in the server-side session.
-    6. Return proof data to client so it can pass it to /verify.
+    Login Step 1 – checks user exists, sets username in session.
+    The Schnorr proof is generated entirely client-side; the private key
+    is never transmitted to the server.
     """
     data = request.get_json(force=True)
     username = (data.get("username") or "").strip()
-    raw_key  = data.get("private_key")
 
-    if not username or raw_key is None:
-        return _bad("Username and private_key are required.")
+    if not username:
+        return _bad("Username is required.")
     if not user_exists(username):
         return _bad("User not found.", 404)
 
-    try:
-        x = int(raw_key)
-    except (ValueError, TypeError):
-        return _bad("private_key must be an integer.")
-
-    # ZKP steps
-    r, t = generate_commitment(x)
-    c    = generate_challenge()
-    s    = generate_response(x, r, c)
-
-    # Session Manager – stores temporary proof data
     session["username"] = username
-    session["t"] = t
-    session["c"] = c
-    session["s"] = s
-
-    return jsonify({
-        "success": True,
-        "message": "ZKP proof generated. Call /verify to complete login.",
-        "commitment": t,
-        "challenge":  c,
-        "response":   s,
-    })
+    return jsonify({"success": True, "message": "User found. Submit ZKP proof to /verify."})
 
 
 # ── 4. Verify (Access Control) ─────────────────────────────────────────────
@@ -136,18 +106,24 @@ def verify():
     """
     Verification + Zero Trust Policy Gate
     --------------------------------------
+    Accepts the client-generated Schnorr proof {t, c, s} in the request body.
+    Private key never reaches the server.
+
     Access Control logic:
       IF  ZKP valid  AND  Policy valid  →  grant access
       ELSE                              →  deny access
     """
-    # Retrieve proof from Session Manager
     username = session.get("username")
-    t = session.get("t")
-    c = session.get("c")
-    s = session.get("s")
-
-    if not all([username, t is not None, c is not None, s is not None]):
+    if not username:
         return _bad("No active session. Please login first.", 401)
+
+    data = request.get_json(force=True) or {}
+    try:
+        t = int(data["t"])
+        c = int(data["c"])
+        s = int(data["s"])
+    except (KeyError, ValueError, TypeError):
+        return _bad("Request must include integer fields t, c, and s.")
 
     # Retrieve public key from Public Key Registry
     user = get_user(username)
