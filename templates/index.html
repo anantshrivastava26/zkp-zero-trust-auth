@@ -539,13 +539,29 @@
       return min + rand;
     }
 
-    // Generate Schnorr proof (t, c, s) from private key x — never leaves browser
-    function generateProof(x) {
-      const r = randomBigInt(2n, ZKP_P - 2n);
-      const t = modpow(ZKP_G, r, ZKP_P);
-      const c = randomBigInt(1n, ZKP_P - 2n);
-      const s = ((r - c * x) % (ZKP_P - 1n) + (ZKP_P - 1n)) % (ZKP_P - 1n);
-      return { t, c, s };
+    // SHA-256 via Web Crypto API → hex string
+    async function sha256hex(message) {
+      const buf = new TextEncoder().encode(message);
+      const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+      return Array.from(new Uint8Array(hashBuf))
+        .map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Fiat-Shamir challenge: c = H(t:nonce:timestamp) mod (P-1)
+    // Ties the proof to a specific session nonce and a narrow timestamp window.
+    async function fiatShamirChallenge(t, nonce, timestamp) {
+      const hex = await sha256hex(`${t}:${nonce}:${timestamp}`);
+      return BigInt('0x' + hex) % (ZKP_P - 1n);
+    }
+
+    // Generate a full Schnorr proof — private key x never leaves the browser
+    async function generateProof(x, nonce) {
+      const r         = randomBigInt(2n, ZKP_P - 2n);
+      const t         = modpow(ZKP_G, r, ZKP_P);
+      const timestamp = Math.floor(Date.now() / 1000);
+      const c         = await fiatShamirChallenge(t, nonce, timestamp);
+      const s         = ((r - c * x) % (ZKP_P - 1n) + (ZKP_P - 1n)) % (ZKP_P - 1n);
+      return { t, c, s, timestamp };
     }
 
     // ── UI helpers ──────────────────────────────────────────────────────────
@@ -617,7 +633,7 @@
       }
 
       try {
-        // Step 1: Check user exists — private key stays in the browser
+        // Step 1: Check user exists — server returns a one-time session nonce
         const loginData = await requestJson('/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -629,19 +645,24 @@
           return;
         }
 
-        // Step 2: Generate Schnorr proof entirely client-side
+        // Step 2: Generate Schnorr proof entirely client-side using Fiat-Shamir
         show('login-result', 'Generating ZKP proof locally...', 'ok');
-        const { t, c, s } = generateProof(x);
+        const { t, c, s, timestamp } = await generateProof(x, loginData.nonce);
 
-        // Step 3: Send only the proof (t, c, s) — never the private key
+        // Step 3: Send only the proof — private key never transmitted
         show('login-result', 'Verifying proof and policy checks...', 'ok');
         const verifyData = await requestJson('/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ t: t.toString(), c: c.toString(), s: s.toString() })
+          body: JSON.stringify({
+            t: t.toString(), c: c.toString(), s: s.toString(), timestamp
+          })
         });
 
         if (verifyData.success) {
+          // Keep private key in sessionStorage for continuous re-auth on dashboard
+          sessionStorage.setItem('zkp_private_key', privateKeyStr);
+          sessionStorage.setItem('zkp_username', username);
           show('login-result', `Success: ${verifyData.message}<br>Redirecting to dashboard...`, 'ok');
           setTimeout(() => { window.location.href = verifyData.redirect; }, 1100);
         } else {

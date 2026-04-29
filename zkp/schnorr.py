@@ -15,6 +15,7 @@ Verify     : G^s · y^c  ≡  t  (mod P)
 Proof:  G^s · y^c = G^(r-cx) · G^(xc) = G^r = t  ✓
 """
 
+import hashlib
 import random
 from config import P, G
 
@@ -53,7 +54,19 @@ def generate_response(x: int, r: int, c: int) -> int:
     return (r - c * x) % (P - 1)
 
 
-# ── 5. Verification ────────────────────────────────────────────────────────
+# ── 5. Fiat-Shamir Non-Interactive Challenge ───────────────────────────────
+def fiat_shamir_challenge(t: int, nonce: str, timestamp: int) -> int:
+    """
+    Derive the challenge deterministically: c = SHA-256(t:nonce:timestamp) mod (P-1).
+    Binding nonce (session-specific, single-use) and timestamp (60-second window)
+    makes every proof unique and non-replayable.
+    """
+    msg = f"{t}:{nonce}:{timestamp}".encode()
+    digest = hashlib.sha256(msg).hexdigest()
+    return int(digest, 16) % (P - 1)
+
+
+# ── 6. Verification ────────────────────────────────────────────────────────
 def verify_proof(y: int, t: int, c: int, s: int) -> bool:
     """
     Verifier checks whether G^s · y^c ≡ t (mod P).

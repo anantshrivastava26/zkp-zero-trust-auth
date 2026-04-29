@@ -606,7 +606,7 @@
       <div class="brand">
         <span class="brand-mark">Z</span>
         <span>ZKP Zero Trust | Cloud Resource</span>
-        <span class="status-pill">session verified</span>
+        <span class="status-pill" id="reauth-status">verifying...</span>
       </div>
       <a class="logout" href="/logout">Logout</a>
     </nav>
@@ -854,6 +854,127 @@
   </div>
 
   <script>
+    // ── Schnorr ZKP (same parameters as login page) ─────────────────────────
+    const ZKP_P = 2147483647n;
+    const ZKP_G = 7n;
+
+    function modpow(base, exp, mod) {
+      let result = 1n;
+      base = base % mod;
+      while (exp > 0n) {
+        if (exp % 2n === 1n) result = (result * base) % mod;
+        exp = exp / 2n;
+        base = (base * base) % mod;
+      }
+      return result;
+    }
+
+    function randomBigInt(min, max) {
+      const range = max - min + 1n;
+      const bits = range.toString(2).length;
+      const bytes = Math.ceil(bits / 8);
+      let rand;
+      do {
+        const arr = new Uint8Array(bytes);
+        crypto.getRandomValues(arr);
+        rand = arr.reduce((acc, b) => (acc << 8n) | BigInt(b), 0n);
+        rand = rand & ((1n << BigInt(bits)) - 1n);
+      } while (rand >= range);
+      return min + rand;
+    }
+
+    async function sha256hex(message) {
+      const buf = new TextEncoder().encode(message);
+      const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+      return Array.from(new Uint8Array(hashBuf))
+        .map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function fiatShamirChallenge(t, nonce, timestamp) {
+      const hex = await sha256hex(`${t}:${nonce}:${timestamp}`);
+      return BigInt('0x' + hex) % (ZKP_P - 1n);
+    }
+
+    async function generateProof(x, nonce) {
+      const r         = randomBigInt(2n, ZKP_P - 2n);
+      const t         = modpow(ZKP_G, r, ZKP_P);
+      const timestamp = Math.floor(Date.now() / 1000);
+      const c         = await fiatShamirChallenge(t, nonce, timestamp);
+      const s         = ((r - c * x) % (ZKP_P - 1n) + (ZKP_P - 1n)) % (ZKP_P - 1n);
+      return { t, c, s, timestamp };
+    }
+
+    // ── Continuous re-authentication ────────────────────────────────────────
+    const REAUTH_INTERVAL = 60;   // seconds between proofs
+    const pill = document.getElementById('reauth-status');
+    let countdown = REAUTH_INTERVAL;
+
+    function setStatus(text, ok = true) {
+      if (!pill) return;
+      pill.textContent = text;
+      pill.style.background = ok
+        ? 'rgba(196, 242, 219, 0.75)'
+        : 'rgba(255, 225, 222, 0.75)';
+      pill.style.color      = ok ? '#145638' : '#7a2824';
+      pill.style.borderColor = ok
+        ? 'rgba(31, 124, 83, 0.4)'
+        : 'rgba(179, 70, 64, 0.4)';
+    }
+
+    async function doReauth() {
+      const privateKeyStr = sessionStorage.getItem('zkp_private_key');
+      if (!privateKeyStr) {
+        // Key not in sessionStorage — session can't be re-proven; force re-login
+        sessionStorage.clear();
+        window.location.href = '/logout';
+        return;
+      }
+
+      try {
+        const nonceResp = await fetch('/reauth-nonce');
+        if (!nonceResp.ok) {
+          sessionStorage.clear();
+          window.location.href = '/logout';
+          return;
+        }
+        const { nonce } = await nonceResp.json();
+
+        const x = BigInt(privateKeyStr);
+        const { t, c, s, timestamp } = await generateProof(x, nonce);
+
+        const resp = await fetch('/reauth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            t: t.toString(), c: c.toString(), s: s.toString(), timestamp
+          })
+        });
+
+        if (resp.ok) {
+          countdown = REAUTH_INTERVAL;
+          setStatus(`proof renewed`);
+        } else {
+          setStatus('proof failed — logging out', false);
+          setTimeout(() => { sessionStorage.clear(); window.location.href = '/logout'; }, 1500);
+        }
+      } catch {
+        // Network error — don't terminate, try again next cycle
+        setStatus(`proof pending...`);
+      }
+    }
+
+    // Countdown ticker
+    setInterval(() => {
+      countdown--;
+      if (countdown <= 0) countdown = REAUTH_INTERVAL;
+      setStatus(`session live · next proof in ${countdown}s`);
+    }, 1000);
+
+    // Re-auth loop
+    doReauth();   // run immediately on page load
+    setInterval(doReauth, REAUTH_INTERVAL * 1000);
+
+    // ── Modal logic ─────────────────────────────────────────────────────────
     const backdrop = document.getElementById('modal-backdrop');
     const panels = document.querySelectorAll('.modal-panel');
 
